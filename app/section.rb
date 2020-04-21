@@ -1,5 +1,6 @@
 module Bezier
   class Section
+    include Trigo
     MIN_STEPS     = 8
     MAX_PRECISION = 2
   
@@ -37,20 +38,20 @@ module Bezier
       step_length = 100000000000 # impossibly big !
       while step_length > precision do
         t0          = 1.0 / steps
-        step_length = magnitude @end_point1, at(t0)
+        step_length = Bezier::Trigo::magnitude @end_point1, at(t0)
         steps      += 1
       end
 
       # Actually computes the length of the section :
       points  = steps.times.inject([]) { |a,i| a << at(i * t0) }
-      #points.each_cons(2).sum { |p| magnitude(p[0],p[1]) } 
-      @length = points.each_cons(2).inject(0.0) { |length,p| length += magnitude(p[0],p[1]) } 
+      #points.each_cons(2).sum { |p| Bezier::Trigo::magnitude(p[0],p[1]) } 
+      @length = points.each_cons(2).inject(0.0) { |length,p| length += Bezier::Trigo::magnitude(p[0],p[1]) } 
     end
 
     def compute_length(steps)
       t0      = 1.0 / steps
       points  = (steps + 1).times.inject([]) { |a,i| a << at(i * t0) }
-      @length = points.each_cons(2).inject(0.0) { |length,p| length += magnitude(p[0],p[1]) } 
+      @length = points.each_cons(2).inject(0.0) { |length,p| length += Bezier::Trigo::magnitude(p[0],p[1]) } 
     end
 
 
@@ -63,7 +64,7 @@ module Bezier
     def compute_key_lengths(steps)
       last_length = 0.0
       @key_lengths  = compute_key_points(steps).each_cons(2).inject([0.0]) do |lengths,points|
-                        last_length += magnitude(points[0],points[1])
+                        last_length += Bezier::Trigo::magnitude(points[0],points[1])
                         lengths << last_length
                       end
     end
@@ -99,13 +100,6 @@ module Bezier
     ### Inspect :
     def to_s
       "end point 1: #{@end_point1}\ncontrol point 1: #{@control_point1}\nend point 2: #{@end_point2}\ncontrol point 2: #{@control_point2}"
-    end
-
-
-    ### Tools : 
-    private
-    def magnitude(point1,point2)
-      Math::sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
     end
   end
 end
