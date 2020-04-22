@@ -4,7 +4,7 @@ require 'app/curve.rb'
 
 ### Setup :
 def setup(args)
-  args.state.curve      = Bezier::Curve.new [ [520,100], [640,360], [850,500] ]
+  args.state.curve      = nil#Bezier::Curve.new [ [520,100], [640,360], [850,500] ]
 
   args.state.setup_done = true
 end
@@ -12,9 +12,25 @@ end
 
 ### Main Loop :
 def tick(args)
+  # Setup :
   setup(args) unless args.state.setup_done
 
-  draw_curve args, args.state.curve, [150, 150, 150, 255]
+  # User input :
+  if args.inputs.mouse.click then
+    if args.state.curve.nil? then
+      first_point = [ args.inputs.mouse.click.point.x,
+                      args.inputs.mouse.click.point.y ]
+      args.state.curve  = Bezier::Curve.new [ first_point ]
+    else
+      args.state.curve << [ args.inputs.mouse.click.point.x,
+                            args.inputs.mouse.click.point.y ]
+    end
+  end
+
+  # Render :
+  unless args.state.curve.nil? then
+    draw_curve args, args.state.curve, [150, 150, 150, 255]
+  end
 end
 
 
@@ -37,15 +53,22 @@ def draw_curve(args,curve,color)
   ## Points and segments :
   curve.points.each { |point| draw_handle args, point, [0, 0, 0, 255] }
 
-  curve.points.each_cons(2) do |points|
-    args.outputs.lines << [ points[0][0], points[0][1], points[1][0], points[1][1] ] + color
-  end
+  if curve.points.length > 1 then
+    curve.points.each_cons(2) do |points|
+      args.outputs.lines << [ points[0][0], points[0][1], points[1][0], points[1][1] ] + color
+    end
 
-  ## Controls :
-  curve.controls.each { |control| draw_handle(args, control, [0, 0, 255, 255]) }
+    ## Controls :
+    #curve.controls.each { |control| draw_handle(args, control, [0, 0, 255, 255]) }
+    curve.controls.each.with_index do |control,i|
+      color = ( i % 2 == 0 ? [0, 0, 255, 255] : [255, 0, 0, 255] )
+      draw_handle(args, control, color)
+      args.outputs.labels << [ control[0], control[1],  i.to_s ]
+    end
 
-  args.state.curve.controls.slice(1, curve.controls.length-2).each_slice(2) do |controls|
-    args.outputs.lines << [ controls[0][0], controls[0][1], controls[1][0], controls[1][1], 200, 200, 255, 255 ]
+    args.state.curve.controls.slice(1, curve.controls.length-2).each_slice(2) do |controls|
+      args.outputs.lines << [ controls[0][0], controls[0][1], controls[1][0], controls[1][1], 200, 200, 255, 255 ]
+    end
   end
 end
 

@@ -10,12 +10,16 @@ module Bezier
       balance
     end
 
-    def add_point(point)
+    def <<(point)
       @points << point
+      balance_at @points.length - 1
       balance_at @points.length - 2
+      #balance_at @points.length - 1
+      #balance
     end
   
     def balance
+      @controls = []
       @points.length.times { |i| balance_at i } 
     end
 
@@ -57,16 +61,20 @@ module Bezier
           angle2                = Bezier::Trigo::angle_of points[index],   points[index+1]
           control_angle         = ( angle1 + angle2 ) / 2.0
 
-          length1               = Bezier::Trigo::magnitude(points[0], points[1]) / 3.0
-          length2               = Bezier::Trigo::magnitude(points[1], points[2]) / 3.0
+          length1               = Bezier::Trigo::magnitude(points[index-1], points[index])   / 3.0
+          length2               = Bezier::Trigo::magnitude(points[index],   points[index+1]) / 3.0
 
-          @controls[2*index-1]  = [ points[index][0] + length1 * Math::cos(control_angle),
-                                    points[index][1] + length1 * Math::sin(control_angle) ]
-          @controls[2*index]    = [ points[index][0] - length2 * Math::cos(control_angle),
-                                    points[index][1] - length2 * Math::sin(control_angle) ]
+          @controls[2*index-1]  = [ points[index][0] - length1 * Math::cos(control_angle),
+                                    points[index][1] - length1 * Math::sin(control_angle) ]
+          @controls[2*index]    = [ points[index][0] + length2 * Math::cos(control_angle),
+                                    points[index][1] + length2 * Math::sin(control_angle) ]
         end
 
       end
+    end
+
+    def to_s
+      "curve #{object_id} -> length: #{@points.length}"
     end
   end
 end
