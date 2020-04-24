@@ -1,20 +1,22 @@
 module Bezier
   class Section
     include Trigo
+
     MIN_STEPS     = 8
     MAX_PRECISION = 2
+    MAX_LENGTH    = 1000000000
   
-    attr_accessor :end_point1, :end_point2,
-                  :control_point1, :control_point2,
+    attr_accessor :anchor1, :anchor2,
+                  :control1, :control2,
                   :length, :key_lengths
   
 
     ### Initialization :
-    def initialize(end_point1,control_point1,control_point2,end_point2)
-      @end_point1     = end_point1
-      @control_point1 = control_point1
-      @end_point2     = end_point2
-      @control_point2 = control_point2
+    def initialize(anchor1,control1,control2,anchor2)
+      @anchor1  = anchor1
+      @control1 = control1
+      @anchor2  = anchor2
+      @control2 = control2
     end
   
 
@@ -24,10 +26,10 @@ module Bezier
     end
 
     def coord_at(coord,t)
-        @end_point1[coord] * (1 -t) ** 3 +
-        3 * @control_point1[coord] * t * (1 - t) ** 2 +
-        3 * @control_point2[coord] * (1 - t) * t ** 2 +
-        @end_point2[coord] * t ** 3
+        @anchor1[coord] * (1 -t) ** 3 +
+        3 * @control1[coord] * t * (1 - t) ** 2 +
+        3 * @control2[coord] * (1 - t) * t ** 2 +
+        @anchor2[coord] * t ** 3
     end
 
 
@@ -35,16 +37,16 @@ module Bezier
     def compute_precise_length(min_steps=MIN_STEPS,precision=MAX_PRECISION)
       # Compute the minimal t0 to have decent precision :
       steps       = min_steps
-      step_length = 100000000000 # impossibly big !
+      step_length = MAX_LENGTH # impossibly big !
       while step_length > precision do
         t0          = 1.0 / steps
-        step_length = Bezier::Trigo::magnitude @end_point1, at(t0)
+        step_length = Bezier::Trigo::magnitude @anchor1, at(t0)
         steps      += 1
       end
 
       # Actually computes the length of the section :
       points  = steps.times.inject([]) { |a,i| a << at(i * t0) }
-      #points.each_cons(2).sum { |p| Bezier::Trigo::magnitude(p[0],p[1]) } 
+      #points.each_cons(2).sum { |p| Bezier::Trigo::magnitude(p[0],p[1]) }    # for future versions
       @length = points.each_cons(2).inject(0.0) { |length,p| length += Bezier::Trigo::magnitude(p[0],p[1]) } 
     end
 
@@ -99,7 +101,7 @@ module Bezier
 
     ### Inspect :
     def to_s
-      "end point 1: #{@end_point1}\ncontrol point 1: #{@control_point1}\nend point 2: #{@end_point2}\ncontrol point 2: #{@control_point2}"
+      "end point 1: #{@anchor1}\ncontrol point 1: #{@control1}\nend point 2: #{@anchor2}\ncontrol point 2: #{@control2}"
     end
   end
 end
