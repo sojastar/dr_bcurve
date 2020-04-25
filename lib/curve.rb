@@ -2,7 +2,10 @@ module Bezier
   class Curve
     attr_accessor :sections, :anchors, :controls
 
+    ### INITIALIZATION :
     def initialize(anchors)
+      raise "A curve must have at least one point (anchors argument nil or empty )." if anchors.nil? || anchors.empty?
+
       @anchors  = anchors
       @controls = []
       @sections = []
@@ -11,8 +14,13 @@ module Bezier
       build_sections
     end
 
+
+    ### ADDING ANCHOR POINTS :
     def <<(point)
       @anchors << point
+
+      @controls += [ [0,0], [0,0 ] ]  # add some dummy controls ...
+      # ... that will be properly set by the 2 balance_at calls.
 
       balance_at @anchors.length - 2
       balance_at @anchors.length - 1
@@ -32,15 +40,9 @@ module Bezier
                                   @anchors[i+1] )
         end
     end
-
-    #def update_sections
-    #  @sections.times { |i| update_section(i) }
-    #end
-
-    #def update_section(index)
-
-    #end
   
+
+    ### AUTOMATIC BALANCING AT ANCHOR POINTS :
     def balance
       @controls = []
       @anchors.length.times { |i| balance_at i } 
@@ -69,14 +71,15 @@ module Bezier
 
         case index
         when 0 
-          @controls[index]      = [ @anchors[0][0] + ( @anchors[1][0] - @anchors[0][0] ) / 3.0,
-                                    @anchors[0][1] + ( @anchors[1][1] - @anchors[0][1] ) / 3.0 ]
+          @controls[index][0]     = @anchors[0][0] + ( @anchors[1][0] - @anchors[0][0] ) / 3.0
+          @controls[index][1]     = @anchors[0][1] + ( @anchors[1][1] - @anchors[0][1] ) / 3.0
 
         when @anchors.length - 1
-          @controls[2*index-1]  = [ @anchors[-1][0] + ( @anchors[-2][0] - @anchors[-1][0] ) / 3.0,
-                                    @anchors[-1][1] + ( @anchors[-2][1] - @anchors[-1][1] ) / 3.0 ]
+          @controls[2*index-1][0] = @anchors[-1][0] + ( @anchors[-2][0] - @anchors[-1][0] ) / 3.0
+          @controls[2*index-1][1] = @anchors[-1][1] + ( @anchors[-2][1] - @anchors[-1][1] ) / 3.0
 
         else
+          # Calculating the controls positions for optimal smoothness :
           angle1                = Bezier::Trigo::angle_of @anchors[index-1], @anchors[index]
           angle2                = Bezier::Trigo::angle_of @anchors[index],   @anchors[index+1]
           control_angle         = ( angle1 + angle2 ) / 2.0
@@ -85,16 +88,23 @@ module Bezier
           length1               = Bezier::Trigo::magnitude(@anchors[index-1], @anchors[index])   / 3.0
           length2               = Bezier::Trigo::magnitude(@anchors[index],   @anchors[index+1]) / 3.0
 
-          @controls[2*index-1]  = [ @anchors[index][0] - length1 * Math::cos(control_angle),
-                                    @anchors[index][1] - length1 * Math::sin(control_angle) ]
-          @controls[2*index]    = [ @anchors[index][0] + length2 * Math::cos(control_angle),
-                                    @anchors[index][1] + length2 * Math::sin(control_angle) ]
-          @sections.last.control2 = @controls[2*index-1]
+          # Updating the data structures :
+          @controls[2*index-1][0] = @anchors[index][0] - length1 * Math::cos(control_angle)
+          @controls[2*index-1][1] = @anchors[index][1] - length1 * Math::sin(control_angle)
+          @controls[2*index][0]   = @anchors[index][0] + length2 * Math::cos(control_angle)
+          @controls[2*index][1]   = @anchors[index][1] + length2 * Math::sin(control_angle)
         end
 
       end
     end
 
+
+    ### TRAVERSING :
+    def at(t)
+    end
+
+
+    ### INSPECTION :
     def to_s
       "curve #{object_id} -> length: #{@anchors.length}"
     end

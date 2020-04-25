@@ -44,6 +44,7 @@ def tick(args)
   ## EDIT MODE :
   when :edit
     # Clicking grabs the closest point or control ( if it is close enough ) and ...
+    # ... cliking + control will straighten the curve at the clicked point.
     if args.inputs.mouse.click
       if args.state.grabed.nil? then
         anchors_distances   = args.state.curve.anchors.map.with_index do |anchor,index|
@@ -59,26 +60,33 @@ def tick(args)
         closest_control     = controls_distances.sort! { |cd1,cd2| cd1[:distance] <=> cd2[:distance] }.first
 
         if closest_anchor[:distance] <= closest_control[:distance] && closest_anchor[:distance] < GRAB_DISTANCE
-          anchor_index    = closest_anchor[:index]
-          args.state.grabed = { type:             :anchor,
-                                index:            closest_anchor[:index] }
+          if args.inputs.keyboard.b then    # Control held down will balance the ...
+                                            # ... curve at the clicked anchor.
+            args.state.curve.balance_at closest_anchor[:index]
+          
+          else                              # Simple click will grab the anchor and its ...
+                                            # ... local controls or just a control.
+            anchor_index    = closest_anchor[:index]
+            args.state.grabed = { type:             :anchor,
+                                  index:            closest_anchor[:index] }
 
-          if anchor_index > 0 then  # because the first anchor of the curve ...
-                                    # ... doesn't have a control1.
-            args.state.grabed[:control1_index]  = 2 * anchor_index - 1
-            args.state.grabed[:control1_offset] = [ args.state.curve.controls[2*anchor_index-1][0] -
-                                                    args.state.curve.anchors[anchor_index][0],
-                                                    args.state.curve.controls[2*anchor_index-1][1] -
-                                                    args.state.curve.anchors[anchor_index][1] ]
-          end
+            if anchor_index > 0 then  # because the first anchor of the curve ...
+                                      # ... doesn't have a control1.
+              args.state.grabed[:control1_index]  = 2 * anchor_index - 1
+              args.state.grabed[:control1_offset] = [ args.state.curve.controls[2*anchor_index-1][0] -
+                                                      args.state.curve.anchors[anchor_index][0],
+                                                      args.state.curve.controls[2*anchor_index-1][1] -
+                                                      args.state.curve.anchors[anchor_index][1] ]
+            end
 
-          if anchor_index < args.state.curve.anchors.length - 1 then  # because the last anchor ...
-                                                                      # ... doesn't have a control2
-            args.state.grabed[:control2_index]  = 2 * anchor_index
-            args.state.grabed[:control2_offset] = [ args.state.curve.controls[2*anchor_index][0] -
-                                                    args.state.curve.anchors[anchor_index][0],
-                                                    args.state.curve.controls[2*anchor_index][1] -
-                                                    args.state.curve.anchors[anchor_index][1] ]
+            if anchor_index < args.state.curve.anchors.length - 1 then  # because the last anchor ...
+                                                                        # ... doesn't have a control2
+              args.state.grabed[:control2_index]  = 2 * anchor_index
+              args.state.grabed[:control2_offset] = [ args.state.curve.controls[2*anchor_index][0] -
+                                                      args.state.curve.anchors[anchor_index][0],
+                                                      args.state.curve.controls[2*anchor_index][1] -
+                                                      args.state.curve.anchors[anchor_index][1] ]
+            end
           end
 
         elsif closest_anchor[:distance] > closest_control[:distance] && closest_control[:distance] < GRAB_DISTANCE
@@ -116,7 +124,7 @@ def tick(args)
       
       end
 
-      args.outputs.labels << [20, 50, "grabed: #{args.inputs.mouse.x},#{args.inputs.mouse.y}" ]
+      args.outputs.labels << [20, 50, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
     end
 
     # Space bar switches to DRAW mode :
@@ -132,7 +140,7 @@ def tick(args)
     #print_curve args, args.state.curve
   end
 
-  args.outputs.labels << [20, 30, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} #{"(click to grab a point or control; ctrl-click point to straigthen controls)" if args.state.mode == :edit}"]
+  args.outputs.labels << [20, 30, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} #{"(click to grab a point or control; click+b on anchor to straigthen curve)" if args.state.mode == :edit}"]
 end
 
 
