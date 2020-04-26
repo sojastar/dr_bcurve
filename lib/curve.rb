@@ -1,14 +1,20 @@
 module Bezier
   class Curve
-    attr_accessor :sections, :anchors, :controls
+    DEFAULT_STEPS = 12
+
+    attr_accessor :sections, :anchors, :controls, :length
 
     ### INITIALIZATION :
-    def initialize(anchors)
-      raise "A curve must have at least one point (anchors argument nil or empty )." if anchors.nil? || anchors.empty?
+    def initialize(anchors,steps=DEFAULT_STEPS)
+      raise "A curve must have at least one point (anchors argument nil or empty)." if anchors.nil? || anchors.empty?
 
       @anchors  = anchors
       @controls = []
       @sections = []
+
+      @steps    = steps
+
+      @length   = 0.0
 
       balance
       build_sections
@@ -22,14 +28,16 @@ module Bezier
       @controls += [ [0,0], [0,0 ] ]  # add some dummy controls ...
       # ... that will be properly set by the 2 balance_at calls.
 
-      balance_at @anchors.length - 2
-      balance_at @anchors.length - 1
-
       @sections << Section.new( @anchors[@anchors.length-2],
                                 @controls[@controls.length-2],
                                 @controls.last,
                                 @anchors.last )
-      #@sections.last.compute_key_lengths(12)
+
+      balance_at @anchors.length - 2
+      balance_at @anchors.length - 1
+
+      @length += @sections.last.compute_length(@steps)
+      @sections.last.compute_key_lengths(@steps)
     end
 
     def build_sections
@@ -61,10 +69,10 @@ module Bezier
 
         # Same process wether the index is 0 or 1 : place the control anchors ...
         # ... at one third and two thirds of the segment.
-        @controls[0] = [  @anchors[0][0] + ( @anchors[1][0] - @anchors[0][0] ) / 3.0,
-                          @anchors[0][1] + ( @anchors[1][1] - @anchors[0][1] ) / 3.0 ]
-        @controls[1] = [  @anchors[0][0] + 3.0 * ( @anchors[1][0] - @anchors[0][0] ) / 3.0,
-                          @anchors[0][1] + 3.0 * ( @anchors[1][1] - @anchors[0][1] ) / 3.0 ]
+        @controls[0][0] = @anchors[0][0] + ( @anchors[1][0] - @anchors[0][0] ) / 3.0
+        @controls[0][1] = @anchors[0][1] + ( @anchors[1][1] - @anchors[0][1] ) / 3.0
+        @controls[1][0] = @anchors[0][0] + 3.0 * ( @anchors[1][0] - @anchors[0][0] ) / 3.0
+        @controls[1][1] = @anchors[0][1] + 3.0 * ( @anchors[1][1] - @anchors[0][1] ) / 3.0
         
       else
         raise "Index out of range (got index #{index} for a length of #{@anchors.length})!" if index >= @anchors.length
@@ -80,13 +88,13 @@ module Bezier
 
         else
           # Calculating the controls positions for optimal smoothness :
-          angle1                = Bezier::Trigo::angle_of @anchors[index-1], @anchors[index]
-          angle2                = Bezier::Trigo::angle_of @anchors[index],   @anchors[index+1]
-          control_angle         = ( angle1 + angle2 ) / 2.0
-          control_angle        += Math::PI if ( angle1 - angle2 ).abs > Math::PI
+          angle1                  = Bezier::Trigo::angle_of @anchors[index-1], @anchors[index]
+          angle2                  = Bezier::Trigo::angle_of @anchors[index],   @anchors[index+1]
+          control_angle           = ( angle1 + angle2 ) / 2.0
+          control_angle          += Math::PI if ( angle1 - angle2 ).abs > Math::PI
 
-          length1               = Bezier::Trigo::magnitude(@anchors[index-1], @anchors[index])   / 3.0
-          length2               = Bezier::Trigo::magnitude(@anchors[index],   @anchors[index+1]) / 3.0
+          length1                 = Bezier::Trigo::magnitude(@anchors[index-1], @anchors[index])   / 3.0
+          length2                 = Bezier::Trigo::magnitude(@anchors[index],   @anchors[index+1]) / 3.0
 
           # Updating the data structures :
           @controls[2*index-1][0] = @anchors[index][0] - length1 * Math::cos(control_angle)
@@ -96,17 +104,90 @@ module Bezier
         end
 
       end
+
+      update_sections_length_at_anchor(index)
+    end
+
+    def update_sections_length_at_anchor(index)
+      if @sections.length > 0 then
+        case index
+        when 0
+          @sections.first.compute_length(@steps)
+          @sections.first.compute_key_lengths(@steps)
+        when @anchors.length - 1
+          @sections.last.compute_length(@steps)
+          @sections.last.compute_key_lengths(@steps)
+        else
+          @sections[index-1].compute_length(@steps)
+          @sections[index-1].compute_key_lengths(@steps)
+
+
+          @sections[index].compute_length(@steps)
+          @sections[index].compute_key_lengths(@steps)
+        end
+      end
+
+      compute_length
     end
 
 
     ### TRAVERSING :
+    def compute_length
+      @length = @sections.inject(0.0) { |sum,section| sum += section.length }
+    end
+
+    def find_section_length_at(t)
+      u                 = t * @length
+      section_index     = 0
+      length_to_section = 0.0
+      while section_index < @sections.length && length_to_section + @sections[section_index].length < u do
+        length_to_section += @sections[section_index].length
+        section_index     += 1
+      end
+
+      [section_index, length_to_section]
+    end
+
     def at(t)
+      section_index, length_to_section  = find_section_length_at t
+
+      if section_index >= @sections.length then
+        section_index = @sections.length - 1
+        mapped_t      = 1.0
+      else
+        mapped_t      = ( t * @length - length_to_section ) / @sections[section_index].length
+      end
+
+      @sections[section_index].at(mapped_t) 
     end
 
 
     ### INSPECTION :
     def to_s
-      "curve #{object_id} -> length: #{@anchors.length}"
+      "curve #{object_id} -> #{@anchors.length} anchors"
+    end
+
+    def detailed_inspect
+      inspect_string  = ''
+      @sections.length.times do |i|
+        # by section :
+        
+        # 1. first anchor :
+        inspect_string += "@anchors[#{i}] -> (#{@anchors[i][0].to_i};#{@anchors[i][1].to_i}) - #{@anchors[i].object_id}" + " | " +
+        "@section[#{i}].anchor1 -> (#{@sections[i].anchor1[0].to_i};#{@sections[i].anchor1[1].to_i}) - #{@sections[i].anchor1.object_id}"
+
+        # 2. first control :
+        inspect_string += "@controls[#{2*i}] -> (#{@controls[2*i][0].to_i};#{@controls[2*i][1].to_i}) - #{@controls[2*i].object_id}" + " | " + 
+        "@section[#{i}].control1 -> (#{@sections[i].control1[0].to_i};#{@sections[i].control1[1].to_i}) - #{@sections[i].control1.object_255}"
+
+        # 3. second control :
+        inspect_string += "@controls[#{2*i+1}] -> (#{@controls[2*i+1][0].to_i};#{@controls[2*i+1][1].to_i}) - #{@controls[2*i+1].object_id}" + " | " +
+        "@section[#{i}].control2 -> (#{@sections[i].control2[0].to_i};#{@sections[i].control2[1].to_i}) - #{@sections[i].control2.object_255}"
+
+        # 4. second anchor :
+        inspect_string += "@anchors[#{i+1}] -> (#{@anchors[i+1][0].to_i};#{@anchors[i+1][1].to_i}) - #{@anchors[i+1].object_id}" + " | " + 
+        "@section[#{i}].anchor2 -> (#{@sections[i].anchor2[0].to_i};#{@sections[i].anchor2[1].to_i}) - #{@sections[i].anchor2.object_id}"
+      end
     end
   end
 end

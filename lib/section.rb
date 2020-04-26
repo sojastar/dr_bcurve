@@ -2,7 +2,7 @@ module Bezier
   class Section
     include Trigo
 
-    MIN_STEPS     = 8
+    MIN_STEPS     = 12
     MAX_PRECISION = 2
     MAX_LENGTH    = 1000000000
   

@@ -2,26 +2,45 @@ require '/lib/trigo.rb'
 require '/lib/section.rb'
 require '/lib/curve.rb'
 
-GRAB_DISTANCE   = 10.0
-RENDERING_STEPS = 24
+
+
+
+
+### Constants :
+GRAB_DISTANCE     = 10.0
+RENDERING_STEPS   = 24
+TRAVERSING_SPEED  = 0.01
+
+
+
+
 
 ### Setup :
 def setup(args)
   args.state.curve      = nil
-  #args.state.curve      = Bezier::Curve.new [ [520,100], [640,360], [850,500] ]
   args.state.mode       = :draw
   args.state.grabed     = nil
+
+  args.state.t          = 0.5
+
   args.state.setup_done = true
 end
 
 
+
+
+
 ### Main Loop :
 def tick(args)
+  trace! $game
+
   ## Setup :
   setup(args) unless args.state.setup_done
 
+
   ## User input :
   case args.state.mode
+
   ## DRAW MODE :
   when :draw
     # Clicking adds an anchor :
@@ -40,6 +59,16 @@ def tick(args)
       args.state.grabed = nil
       args.state.mode   = :edit
     end
+
+    # Pressing 't' switches to TRAVERSING mode:
+    if args.inputs.keyboard.key_down.t then
+      args.state.grabed = nil
+      args.state.mode   = :traversing
+      args.state.t      = 0.5
+    end
+
+    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s}"]
+
 
   ## EDIT MODE :
   when :edit
@@ -97,6 +126,7 @@ def tick(args)
 
       else
         args.state.grabed = nil
+        args.state.curve.compute_length
 
       end
     end
@@ -124,7 +154,7 @@ def tick(args)
       
       end
 
-      args.outputs.labels << [20, 50, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
+      args.outputs.labels << [20, 680, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
     end
 
     # Space bar switches to DRAW mode :
@@ -132,33 +162,49 @@ def tick(args)
       args.state.grabed = nil
       args.state.mode   = :draw
     end
+
+    # Pressing 't' switches to TRAVERSING mode:
+    if args.inputs.keyboard.key_down.t then
+      args.state.grabed = nil
+      args.state.mode   = :traversing
+      args.state.t      = 0.5
+    end
+
+    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} (click to grab a point or control; click+b on anchor to straigthen curve)"]
+
+
+  ## TRAVERSING MODE :
+  when :traversing
+    # User input :
+    if args.inputs.keyboard.key_held.up || args.inputs.keyboard.key_held.right then
+      args.state.t += TRAVERSING_SPEED
+      args.state.t  = 1.0 if args.state.t > 1.0
+    elsif args.inputs.keyboard.key_held.down || args.inputs.keyboard.key_held.left then
+      args.state.t -= TRAVERSING_SPEED
+      args.state.t  = 0.0 if args.state.t < 0.0
+    end
+
+    # Drawing :
+    point = args.state.curve.at args.state.t
+    draw_cross args, point, [255, 0, 0, 255]
+
+    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} t = #{args.state.t} -> (#{point[0].to_i},#{point[1].to_i})"]
+
   end
+
 
   # Render :
   unless args.state.curve.nil? then
     draw_curve args, args.state.curve, [150, 150, 150, 255]
-    #print_curve args, args.state.curve
   end
 
-  args.outputs.labels << [20, 30, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} #{"(click to grab a point or control; click+b on anchor to straigthen curve)" if args.state.mode == :edit}"]
 end
 
 
-### Tools :
-def draw_cross(args,coords,color)
-  args.outputs.lines << [coords[0]-5, coords[1]+5, coords[0]+6, coords[1]-6] + color
-  args.outputs.lines << [coords[0]-5, coords[1]-5, coords[0]+6, coords[1]+6] + color
-end
 
-def draw_small_cross(args,coords,color)
-  args.outputs.lines << [coords[0]-1, coords[1], coords[0]+2, coords[1]] + color
-  args.outputs.lines << [coords[0], coords[1]-1, coords[0], coords[1]+2] + color
-end
 
-def draw_handle(args,coords,color)
-  args.outputs.solids << [ coords[0] - 2, coords[1] - 2, 5, 5 ] + color
-end
 
+### Drawing :
 def draw_curve(args,curve,color)
   ## Anchors and segments :
   curve.anchors.each { |anchor| draw_handle args, anchor, [0, 0, 0, 255] }
@@ -192,21 +238,22 @@ def draw_section(args,section,color)
   key_points.each_cons(2) { |points| args.outputs.lines << points[0] + points[1] + color }
 end
 
-def print_curve(args,curve)
-  curve.sections.length.times do |i|
-    # Curve storage side :
-    args.outputs.labels << [20, 720 - 15 * 5 * i,     "curve.anchors[#{i}]   -> (#{curve.anchors[i][0].to_i};#{curve.anchors[i][1].to_i}) - #{curve.anchors[i].object_id}", -4, 0, 255, 75, 75, 255]
-    args.outputs.labels << [20, 720 - 15 * (5*i+1), "curve.controls[#{2*i}] -> (#{curve.controls[2*i][0].to_i};#{curve.controls[2*i][1].to_i}) - #{curve.controls[2*i].object_id}", -4, 0, 75, 75, 255, 255]
-    args.outputs.labels << [20, 720 - 15 * (5*i+2), "curve.controls[#{2*i+1}] -> (#{curve.controls[2*i+1][0].to_i};#{curve.controls[2*i+1][1].to_i}) - #{curve.controls[2*i+1].object_id}", -4, 0, 75, 75, 255, 255]
-    args.outputs.labels << [20, 720 - 15 * (5*i+3), "curve.anchors[#{i+1}]   -> (#{curve.anchors[i+1][0].to_i};#{curve.anchors[i+1][1].to_i}) - #{curve.anchors[i+1].object_id}", -4, 0, 255, 75, 75, 255]
-    # Section storage side :
-    args.outputs.labels << [350, 720 - 15 * 5 * i,   "curve.section[#{i}].anchor1     -> (#{curve.sections[i].anchor1[0].to_i};#{curve.sections[i].anchor1[1].to_i}) - #{curve.sections[i].anchor1.object_id}", -4, 0, 75, 255, 200, 255]
-    args.outputs.labels << [350, 720 - 15 * (5*i+1),   "curve.section[#{i}].control1 -> (#{curve.sections[i].control1[0].to_i};#{curve.sections[i].control1[1].to_i}) - #{curve.sections[i].control1.object_id}", -4, 0, 0, 255, 0, 255]
-    args.outputs.labels << [350, 720 - 15 * (5*i+2),   "curve.section[#{i}].control2 -> (#{curve.sections[i].control2[0].to_i};#{curve.sections[i].control2[1].to_i}) - #{curve.sections[i].control2.object_id}", -4, 0, 0, 255, 0, 255]
-    args.outputs.labels << [350, 720 - 15 * (5*i+3),   "curve.section[#{i}].anchor2     -> (#{curve.sections[i].anchor2[0].to_i};#{curve.sections[i].anchor2[1].to_i}) - #{curve.sections[i].anchor2.object_id}", -4, 0, 75, 255, 200, 255]
-  end
+
+
+
+
+### Tools :
+def draw_cross(args,coords,color)
+  args.outputs.lines << [coords[0]-5, coords[1]+5, coords[0]+6, coords[1]-6] + color
+  args.outputs.lines << [coords[0]-5, coords[1]-5, coords[0]+6, coords[1]+6] + color
 end
 
-def rad_to_deg(angle)
-  180.0 * angle / Math::PI
+def draw_small_cross(args,coords,color)
+  args.outputs.lines << [coords[0]-1, coords[1], coords[0]+2, coords[1]] + color
+  args.outputs.lines << [coords[0], coords[1]-1, coords[0], coords[1]+2] + color
 end
+
+def draw_handle(args,coords,color)
+  args.outputs.solids << [ coords[0] - 2, coords[1] - 2, 5, 5 ] + color
+end
+
