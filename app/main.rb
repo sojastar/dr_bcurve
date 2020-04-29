@@ -53,19 +53,19 @@ def tick(args)
       end
     end
 
-    # Space bar switches to EDIT mode :
+    # The space bar switches to EDIT mode :
     if args.inputs.keyboard.key_down.space then
       args.state.grabed = nil
       args.state.mode   = :edit
     end
 
-    # Pressing 'c' will CLOSE the Bézier patch :
+    # The 'c' key will CLOSE the Bézier patch :
     args.state.curve.close if args.inputs.keyboard.key_down.c
 
-    # Pressing 'o' will OPEN the Bézier patch :
+    # The 'o' key will OPEN the Bézier patch :
     args.state.curve.open if args.inputs.keyboard.key_down.o
 
-    # Pressing 't' switches to TRAVERSING mode:
+    # The 't' key switches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
       args.state.curve.prepare_traversing RENDERING_STEPS
 
@@ -74,7 +74,7 @@ def tick(args)
       args.state.t      = 0.5
     end
 
-    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s}"]
+    args.outputs.labels << [20, 670, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s}"]
 
 
   ## EDIT MODE :
@@ -161,16 +161,16 @@ def tick(args)
       
       end
 
-      args.outputs.labels << [20, 680, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
+      args.outputs.labels << [20, 670, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
     end
 
-    # Space bar switches to DRAW mode :
+    # The space bar switches to DRAW mode :
     if args.inputs.keyboard.key_down.space then
       args.state.grabed = nil
       args.state.mode   = :draw
     end
 
-    # Pressing 't' switches to TRAVERSING mode:
+    # The 't' key switches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
       args.state.curve.prepare_traversing RENDERING_STEPS
 
@@ -180,7 +180,7 @@ def tick(args)
     end
 
 
-    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} (click to grab a point or control; click+b on anchor to straigthen curve)"]
+    args.outputs.labels << [20, 670, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} (click to grab a point or control; click+b on anchor to straigthen curve)"]
 
 
   ## TRAVERSING MODE :
@@ -194,11 +194,14 @@ def tick(args)
       args.state.t  = 0.0 if args.state.t < 0.0
     end
 
+    args.state.mode = :draw if args.inputs.keyboard.key_down.d
+    args.state.mode = :edit if args.inputs.keyboard.key_down.e
+
     # Drawing :
     point = args.state.curve.at args.state.t
     draw_cross args, point, [255, 0, 0, 255]
 
-    args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} t = #{args.state.t} -> (#{point[0].to_i},#{point[1].to_i})"]
+    args.outputs.labels << [20, 670, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} t = #{args.state.t} -> (#{point[0].to_i},#{point[1].to_i}) (use left and right or up and down arrows to move)"]
 
   end
 
@@ -207,6 +210,8 @@ def tick(args)
   unless args.state.curve.nil? then
     draw_curve args, args.state.curve, [150, 150, 150, 255]
   end
+
+  args.outputs.labels << [20, 700, "Press 'd': draw the curve - Press 'e': edit the curve - Press 't': traverse the curve"]
 
 end
 
