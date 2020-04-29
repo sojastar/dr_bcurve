@@ -8,16 +8,17 @@ module Bezier
     def initialize(anchors,steps=DEFAULT_STEPS)
       raise "A curve must have at least one point (anchors argument nil or empty)." if anchors.nil? || anchors.empty?
 
+      # Geometry data structures :
       @anchors    = anchors
-      @controls   = []
+      @controls   = (@anchors.length < 2 ? [] : Array.new(2 * ( @anchors.length - 1 ) ) { [0, 0] } )
       @sections   = []
 
+      # State :
       @steps      = steps
-
       @length     = 0.0
-
       @is_closed  = false
 
+      # Setup :
       balance
       build_sections
     end
@@ -89,7 +90,7 @@ module Bezier
 
     ### AUTOMATIC BALANCING AT ANCHOR POINTS :
     def balance
-      @controls = []
+      #@controls = []
       @anchors.length.times { |i| balance_at i } 
     end
 

@@ -53,19 +53,19 @@ def tick(args)
       end
     end
 
-    # The space bar switches to EDIT mode :
-    if args.inputs.keyboard.key_down.space then
+    # Pressing 'e' bar switches to EDIT mode :
+    if args.inputs.keyboard.key_down.e then
       args.state.grabed = nil
       args.state.mode   = :edit
     end
 
-    # The 'c' key will CLOSE the Bézier patch :
+    # Pressing 'c' will CLOSE the Bézier patch :
     args.state.curve.close if args.inputs.keyboard.key_down.c
 
-    # The 'o' key will OPEN the Bézier patch :
+    # Pressing 'o' will OPEN the Bézier patch :
     args.state.curve.open if args.inputs.keyboard.key_down.o
 
-    # The 't' key switches to TRAVERSING mode:
+    # Pressing 't' switches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
       args.state.curve.prepare_traversing RENDERING_STEPS
 
@@ -161,16 +161,16 @@ def tick(args)
       
       end
 
-      args.outputs.labels << [20, 670, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
+      args.outputs.labels << [20, 640, "grabed #{args.state.grabed[:type].to_s} #{args.state.grabed[:index]}" ]
     end
 
-    # The space bar switches to DRAW mode :
-    if args.inputs.keyboard.key_down.space then
+    # Pressing 'd' switches to DRAW mode :
+    if args.inputs.keyboard.key_down.d then
       args.state.grabed = nil
       args.state.mode   = :draw
     end
 
-    # The 't' key switches to TRAVERSING mode:
+    # Pressing 't' witches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
       args.state.curve.prepare_traversing RENDERING_STEPS
 
