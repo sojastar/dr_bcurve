@@ -260,8 +260,8 @@ end
 
 ### Tools :
 def draw_cross(args,coords,color)
-  args.outputs.lines << [coords[0]-5, coords[1]+5, coords[0]+6, coords[1]-6] + color
-  args.outputs.lines << [coords[0]-5, coords[1]-5, coords[0]+6, coords[1]+6] + color
+  args.outputs.lines << [coords[0]-10, coords[1]+10, coords[0]+11, coords[1]-11] + color
+  args.outputs.lines << [coords[0]-10, coords[1]-10, coords[0]+11, coords[1]+11] + color
 end
 
 def draw_small_cross(args,coords,color)
