@@ -77,7 +77,7 @@ module Bezier
       if @is_closed then
         @sections.pop
         #@controls.pop(2)
-        @controls.pop # workaround for the pop bug
+        @controls.pop # workaround for the pop bug in DragonRuby
         @controls.pop
 
         @is_closed  = false
@@ -90,7 +90,6 @@ module Bezier
 
     ### AUTOMATIC BALANCING AT ANCHOR POINTS :
     def balance
-      #@controls = []
       @anchors.length.times { |i| balance_at i } 
     end
 
