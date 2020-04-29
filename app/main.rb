@@ -8,7 +8,7 @@ require '/lib/curve.rb'
 
 ### Constants :
 GRAB_DISTANCE     = 10.0
-RENDERING_STEPS   = 24
+RENDERING_STEPS   = 25
 TRAVERSING_SPEED  = 0.01
 
 
@@ -32,7 +32,6 @@ end
 
 ### Main Loop :
 def tick(args)
-  trace! $game
 
   ## Setup :
   setup(args) unless args.state.setup_done
@@ -60,8 +59,16 @@ def tick(args)
       args.state.mode   = :edit
     end
 
+    # Pressing 'c' will CLOSE the Bézier patch :
+    args.state.curve.close if args.inputs.keyboard.key_down.c
+
+    # Pressing 'o' will OPEN the Bézier patch :
+    args.state.curve.open if args.inputs.keyboard.key_down.o
+
     # Pressing 't' switches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
+      args.state.curve.prepare_traversing RENDERING_STEPS
+
       args.state.grabed = nil
       args.state.mode   = :traversing
       args.state.t      = 0.5
@@ -165,10 +172,13 @@ def tick(args)
 
     # Pressing 't' switches to TRAVERSING mode:
     if args.inputs.keyboard.key_down.t then
+      args.state.curve.prepare_traversing RENDERING_STEPS
+
       args.state.grabed = nil
       args.state.mode   = :traversing
       args.state.t      = 0.5
     end
+
 
     args.outputs.labels << [20, 700, "mouse: #{args.inputs.mouse.x.to_i};#{args.inputs.mouse.y.to_i} - mode: #{args.state.mode.to_s} (click to grab a point or control; click+b on anchor to straigthen curve)"]
 
@@ -206,10 +216,11 @@ end
 
 ### Drawing :
 def draw_curve(args,curve,color)
-  ## Anchors and segments :
+  ## Anchors :
   curve.anchors.each { |anchor| draw_handle args, anchor, [0, 0, 0, 255] }
 
   if curve.anchors.length > 1 then
+    ## Segments :
     curve.anchors.each_cons(2) do |anchors|
       args.outputs.lines << [ anchors[0][0], anchors[0][1], anchors[1][0], anchors[1][1] ] + color
     end
@@ -223,7 +234,7 @@ def draw_curve(args,curve,color)
 
     curve.controls.length.times do |index|
       #point_index = index.even? ? index / 2 : ( index + 1 ) / 2
-      anchor_index = index % 2 == 0 ? index / 2 : ( index + 1 ) / 2
+      anchor_index = ( index % 2 == 0 ? index / 2 : ( index + 1 ) / 2 ) % args.state.curve.anchors.length
       args.outputs.lines << curve.controls[index] + curve.anchors[anchor_index] + [ 200, 200, 255, 255 ]
     end
 
