@@ -21,25 +21,62 @@ curve << [400, 200] # a third point
 ![](add.png)
 
 ### Closing and opening a curve :
-You can close and open and curve.
+You can close and open and curve. A newly instantiated curve is always open.
 
 ```ruby
 curve.close
-curve.is_closed # => true
+curve.is_open?    # => false
+curve.is_closed?  # => true
 ```
 ![](closed.png)
 
 ```ruby
 curve.open
-curve.is_closed # => false
+curve.is_open?    # => true
+curve.is_closed?  # => false
 ```
 ![](add.png)
 
 ### Controls :
-Upon instantiation of a new curve, adding a point or closing a curve, controls (red and blue) are created to manipulate the curve around each anchor. When created, those controls are automatically set to somewhat standard balanced position. You can manipulate those controls to reshape the curve.
+Upon instantiation of a new curve, adding a point or closing a curve, controls (red and blue squares on the picture) are created to manipulate the curve around each anchor (black squares). When created, those controls are automatically set to a  somewhat standard balanced position. You can manipulate those controls to reshape the curve.
+
+```ruby
+# Get controls for anchor 1:
+control_before  = curve.get_control_before 1
+control_after   = curve.get_control_after  1
+```
+or
+```ruby
+# Get controls for anchor 1:
+control_before, control_after = curve.get_controls_at 1
+```
+Controls can then be moved around like so:
+```ruby
+# Move controls:
+control_before[0] = 260
+control_before[1] = 320
+control_after[0]  = 340
+control_after[1]  = 330
+```
 
 ![](unaligned.png)
 
+CAUTION: controls are returned by reference! Assigning directly a new array to a variable that was previously assigned a control WILL NOT update the curve!
+
+```ruby
+# Getting a control:
+control = get_control_before 1
+
+# Modifying the control:
+# Good:
+control[0]  = new_x_value
+control[1]  = new_y_value
+
+# Bad:
+control = [new_x_value, new_y_value]  # WILL NOT UPDATE THE CURVE
+```
+
+### Balance :
 You can rebalance the control points for an anchor.
 
 ```ruby
