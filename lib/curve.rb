@@ -53,7 +53,39 @@ module Bezier
     end
 
 
-    ### Closing and opening :
+    ### ACCESSING CONTROLS :
+    def get_controls_at(index)
+      case index
+      when 0
+        @is_closed ? [ @controls.last, @controls.first ] : [ nil, @controls.first ]
+
+      when @anchors.length - 1
+        @is_closed ? [ @controls[2 * index - 1], @controls[2 * index] ] : [ @controls[2 * index - 1], nil ]
+
+      else
+        [ @controls[2 * index - 1], @controls[2 * index] ]
+
+      end
+    end
+
+    def get_control_before(index)
+      case index
+      when 0                    then  @is_closed ? @controls.last : nil
+      when @anchors.length - 1  then  @controls[2 * index - 1]
+      else                            @controls[2 * index - 1]
+      end
+    end
+
+    def get_control_after(index)
+      case index
+      when 0                    then @controls.first
+      when @anchors.length - 1  then @is_closed ? @controls[2 * index] : nil
+      else                      @controls[2 * index]
+      end
+    end
+
+
+    ### CLOSING AND OPENING :
     def close
       unless @is_closed || @anchors.length <= 2 then
         @controls += [ [0, 0], [0, 0] ]
@@ -86,6 +118,9 @@ module Bezier
         balance_first
       end
     end
+
+    def is_closed?()  @is_closed  end
+    def is_open?()    !@is_closed end
   
 
     ### AUTOMATIC BALANCING AT ANCHOR POINTS :
