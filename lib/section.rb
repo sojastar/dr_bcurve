@@ -7,29 +7,33 @@ module Bezier
     MAX_LENGTH    = 1000000000
   
     attr_accessor :anchor1, :anchor2,
-                  :control1, :control2,
                   :length, :key_lengths
   
 
     ### Initialization :
-    def initialize(anchor1,control1,control2,anchor2)
+    def initialize(anchor1,anchor2)
       @anchor1  = anchor1
-      @control1 = control1
       @anchor2  = anchor2
-      @control2 = control2
     end
   
 
     ### Traversing :
-    def at(t)
-      [ coord_at(0,t), coord_at(1,t) ]
+    def coords_at(t)
+      [ x_at(t), y_at(t) ]
     end
 
-    def coord_at(coord,t)
-        @anchor1[coord] * (1 -t) ** 3 +
-        3 * @control1[coord] * t * (1 - t) ** 2 +
-        3 * @control2[coord] * (1 - t) * t ** 2 +
-        @anchor2[coord] * t ** 3
+    def x_at(t)
+        @anchor1.x * (1 -t) ** 3 +
+        3 * @anchor1.right_handle.x * t * (1 - t) ** 2 +
+        3 * @anchor2.left_handle.x * (1 - t) * t ** 2 +
+        @anchor2.x * t ** 3
+    end
+
+    def y_at(t)
+        @anchor1.y * (1 -t) ** 3 +
+        3 * @anchor1.right_handle.y * t * (1 - t) ** 2 +
+        3 * @anchor2.left_handle.y * (1 - t) * t ** 2 +
+        @anchor2.y * t ** 3
     end
 
 
@@ -40,19 +44,18 @@ module Bezier
       step_length = MAX_LENGTH # impossibly big !
       while step_length > precision do
         t0          = 1.0 / steps
-        step_length = Bezier::Trigo::magnitude @anchor1, at(t0)
+        step_length = Bezier::Trigo::magnitude @anchor1.coords, coords_at(t0)
         steps      += 1
       end
 
       # Actually computes the length of the section :
-      points  = steps.times.inject([]) { |a,i| a << at(i * t0) }
-      #points.each_cons(2).sum { |p| Bezier::Trigo::magnitude(p[0],p[1]) }    # for future versions
+      points  = steps.times.inject([]) { |a,i| a << coords_at(i * t0) }
       @length = points.each_cons(2).inject(0.0) { |length,p| length += Bezier::Trigo::magnitude(p[0],p[1]) } 
     end
 
     def compute_length(steps)
       t0      = 1.0 / steps
-      points  = (steps + 1).times.inject([]) { |a,i| a << at(i * t0) }
+      points  = (steps + 1).times.inject([]) { |a,i| a << coords_at(i * t0) }
       @length = points.each_cons(2).inject(0.0) { |length,p| length += Bezier::Trigo::magnitude(p[0],p[1]) } 
     end
 
@@ -60,7 +63,7 @@ module Bezier
     ### Traversing linearly :
     def compute_key_points(steps)
       t0 = 1.0 / steps
-      (steps + 1).times.inject([]) { |points,i| points << at(i * t0) }
+      (steps + 1).times.inject([]) { |points,i| points << coords_at(i * t0) }
     end
 
     def compute_key_lengths(steps)
@@ -94,15 +97,19 @@ module Bezier
       end
     end
 
-    def at_linear(t)
-      at(map_linear(t))
+    def coords_at_linear(t)
+      coords_at(map_linear(t))
     end
 
 
     ### Inspect :
     def to_s
-      "end point 1: #{@anchor1}\ncontrol point 1: #{@control1}\nend point 2: #{@anchor2}\ncontrol point 2: #{@control2}"
+      "x- first anchor  : #{@anchor1.center} - #{@anchor1.object_id}\n" +
+      "<- first handle  : #{@anchor1.right_handle} - #{@anchor1.right_handle.object_id}\n" +
+      "-> second handle : #{@anchor2.left_handle} - #{@anchor1.left_handle.object_id}\n" +
+      "-x second anchor : #{@anchor2.center} - #{@anchor1.object_id}\n"
     end
+    alias inspect to_s
   end
 end
 

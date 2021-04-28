@@ -2,7 +2,7 @@ module Bezier
   class Curve
     DEFAULT_STEPS = 24 
 
-    attr_accessor :sections, :anchors, :controls, :length, :is_closed
+    attr_accessor :sections, :anchors, :length, :is_closed
 
     ### INITIALIZATION :
     def initialize(anchors,steps=DEFAULT_STEPS)
@@ -10,7 +10,6 @@ module Bezier
 
       # Geometry data structures :
       @anchors    = anchors
-      @controls   = (@anchors.length < 2 ? [] : Array.new(2 * ( @anchors.length - 1 ) ) { [0, 0] } )
       @sections   = []
 
       # State :
@@ -25,16 +24,10 @@ module Bezier
 
 
     ### ADDING ANCHOR POINTS :
-    def <<(point)
-      @anchors << point
+    def <<(anchor)
+      @anchors << anchor
 
-      @controls += [ [0, 0], [0, 0] ] # add some dummy controls ...
-      # ... that will be properly set by the 2 balance_at calls.
-
-      @sections << Section.new( @anchors[@anchors.length-2],
-                                @controls[@controls.length-2],
-                                @controls.last,
-                                @anchors.last )
+      @sections << Section.new( @anchors[@anchors.length-2], @anchors.last )
 
       balance_at @anchors.length - 2
       balance_at @anchors.length - 1
@@ -45,60 +38,21 @@ module Bezier
 
     def build_sections
       (@anchors.length - 1).times do |i|
-        @sections << Section.new( @anchors[i],
-                                  @controls[2*i],
-                                  @controls[2*i+1],
-                                  @anchors[i+1] )
+        @sections << Section.new( @anchors[i], @anchors[i+1] )
         end
-    end
-
-
-    ### ACCESSING CONTROLS :
-    def get_controls_at(index)
-      case index
-      when 0
-        @is_closed ? [ @controls.last, @controls.first ] : [ nil, @controls.first ]
-
-      when @anchors.length - 1
-        @is_closed ? [ @controls[2 * index - 1], @controls[2 * index] ] : [ @controls[2 * index - 1], nil ]
-
-      else
-        [ @controls[2 * index - 1], @controls[2 * index] ]
-
-      end
-    end
-
-    def get_control_before(index)
-      case index
-      when 0                    then  @is_closed ? @controls.last : nil
-      when @anchors.length - 1  then  @controls[2 * index - 1]
-      else                            @controls[2 * index - 1]
-      end
-    end
-
-    def get_control_after(index)
-      case index
-      when 0                    then @controls.first
-      when @anchors.length - 1  then @is_closed ? @controls[2 * index] : nil
-      else                      @controls[2 * index]
-      end
     end
 
 
     ### CLOSING AND OPENING :
     def close
       unless @is_closed || @anchors.length <= 2 then
-        @controls += [ [0, 0], [0, 0] ]
-
         @sections << Section.new( @anchors.last,
-                                  @controls[-2],
-                                  @controls[-1],
                                   @anchors.first )
 
         @is_closed  = true
 
-        balance_last
-        balance_first
+        balance_last_anchor
+        balance_first_anchor
 
         @length += @sections.last.compute_length(@steps)
         @sections.last.compute_key_lengths(@steps)
@@ -108,14 +62,11 @@ module Bezier
     def open
       if @is_closed then
         @sections.pop
-        #@controls.pop(2)
-        @controls.pop # workaround for the pop bug in DragonRuby
-        @controls.pop
 
         @is_closed  = false
 
-        balance_last
-        balance_first
+        balance_last_anchor
+        balance_first_anchor
       end
     end
 
@@ -128,51 +79,41 @@ module Bezier
       @anchors.length.times { |i| balance_at i } 
     end
 
-    def balance_first
+    def balance_first_anchor
       if @is_closed then
-        control_before, control_after = balance_point @anchors[-1], @anchors[0], @anchors[1]
-        @controls[-1][0]  = control_before[0]
-        @controls[-1][1]  = control_before[1]
-        @controls[0][0]   = control_after[0]
-        @controls[0][1]   = control_after[1]
+        balance_anchor @anchors[-1], @anchors[0], @anchors[1]
 
-      else
-        @controls[0][0]   = @anchors[0][0] + ( @anchors[1][0] - @anchors[0][0] ) / 3.0
-        @controls[0][1]   = @anchors[0][1] + ( @anchors[1][1] - @anchors[0][1] ) / 3.0
+      else  
+        @anchors[0].right_handle.x  = @anchors[0].x + ( @anchors[1].x - @anchors[0].x ) / 3.0
+        @anchors[0].right_handle.y  = @anchors[0].y + ( @anchors[1].y - @anchors[0].y ) / 3.0
 
       end
     end
 
-    def balance_last
+    def balance_last_anchor
       if @is_closed then
-        control_before, control_after = balance_point @anchors[-2], @anchors[-1], @anchors[0]
-        @controls[-3][0]  = control_before[0]
-        @controls[-3][1]  = control_before[1]
-        @controls[-2][0]  = control_after[0]
-        @controls[-2][1]  = control_after[1]
+        balance_anchor @anchors[-2], @anchors[-1], @anchors[0]
 
-      else
-        @controls[-1][0]  = @anchors[-1][0] + ( @anchors[-2][0] - @anchors[-1][0] ) / 3.0
-        @controls[-1][1]  = @anchors[-1][1] + ( @anchors[-2][1] - @anchors[-1][1] ) / 3.0
+      else  
+        @anchors[-1].left_handle.x  = @anchors[-1].x + ( @anchors[-2].x - @anchors[-1].x ) / 3.0
+        @anchors[-1].left_handle.y  = @anchors[-1].y + ( @anchors[-2].y - @anchors[-1].y ) / 3.0
 
       end
     end
 
-    def balance_point(before,point,after)
-      angle1              = Bezier::Trigo::angle_of before, point
-      angle2              = Bezier::Trigo::angle_of point, after
-      control_angle       = ( angle1 + angle2 ) / 2.0
-      control_angle      += Math::PI if ( angle1 - angle2 ).abs > Math::PI
+    def balance_anchor(before,anchor,after)
+      angle1        = Bezier::Trigo::angle_of before, anchor
+      angle2        = Bezier::Trigo::angle_of         anchor, after
+      handle_angle  = ( angle1 + angle2 ) / 2.0
+      handle_angle += Math::PI if ( angle1 - angle2 ).abs > Math::PI
 
-      length1             = Bezier::Trigo::magnitude(point, before) / 3.0
-      length2             = Bezier::Trigo::magnitude(point, after)  / 3.0
+      length1       = Bezier::Trigo::magnitude(anchor.coords, before.coords) / 3.0
+      length2       = Bezier::Trigo::magnitude(anchor.coords, after.coords)  / 3.0
 
-      control_before      = [ point[0] - length1 * Math::cos(control_angle),
-                              point[1] - length1 * Math::sin(control_angle) ]
-      control_after       = [ point[0] + length2 * Math::cos(control_angle),
-                              point[1] + length2 * Math::sin(control_angle) ]
-
-      [control_before, control_after]
+      anchor.left_handle.x  = anchor.x - length1 * Math::cos(handle_angle)
+      anchor.left_handle.y  = anchor.y - length1 * Math::sin(handle_angle)
+      anchor.right_handle.x = anchor.x + length2 * Math::cos(handle_angle)
+      anchor.right_handle.y = anchor.y + length2 * Math::sin(handle_angle)
     end
 
     def balance_at(index)
@@ -188,25 +129,18 @@ module Bezier
 
         # Same process wether the index is 0 or 1 : place the control anchors ...
         # ... at one third and two thirds of the segment.
-        @controls[0][0] = @anchors[0][0] +       ( @anchors[1][0] - @anchors[0][0] ) / 3.0
-        @controls[0][1] = @anchors[0][1] +       ( @anchors[1][1] - @anchors[0][1] ) / 3.0
-        @controls[1][0] = @anchors[0][0] + 2.0 * ( @anchors[1][0] - @anchors[0][0] ) / 3.0
-        @controls[1][1] = @anchors[0][1] + 2.0 * ( @anchors[1][1] - @anchors[0][1] ) / 3.0
+        @anchors[0].right_handle.x  = @anchors[0].x +       ( @anchors[1].x - @anchors[0].x ) / 3.0
+        @anchors[0].right_handle.y  = @anchors[0].y +       ( @anchors[1].y - @anchors[0].y ) / 3.0
+        @anchors[1].left_handle.x   = @anchors[1].x + 2.0 * ( @anchors[1].x - @anchors[0].x ) / 3.0
+        @anchors[1].left_handle.y   = @anchors[1].y + 2.0 * ( @anchors[1].y - @anchors[0].y ) / 3.0
         
       else
         raise "Index out of range (got index #{index} for a length of #{@anchors.length})!" if index >= @anchors.length
 
         case index
-        when 0                    then balance_first
-        when @anchors.length - 1  then balance_last
-        else
-          control_before, control_after = balance_point @anchors[index-1], @anchors[index], @anchors[index+1]
-
-          @controls[2*index-1][0] = control_before[0]
-          @controls[2*index-1][1] = control_before[1]
-          @controls[2*index][0]   = control_after[0]
-          @controls[2*index][1]   = control_after[1]
-
+        when 0                    then  balance_first_anchor
+        when @anchors.length - 1  then  balance_last_anchor
+        else                            balance_anchor(@anchors[index-1], @anchors[index], @anchors[index+1])
         end
 
       end
@@ -265,7 +199,7 @@ module Bezier
       compute_length
     end
 
-    def at(t)
+    def coords_at(t)
       section_index, length_to_section  = find_section_length_at t
 
       if section_index >= @sections.length then
@@ -275,7 +209,7 @@ module Bezier
         mapped_t      = ( t * @length - length_to_section ) / @sections[section_index].length
       end
 
-      @sections[section_index].at_linear(mapped_t) 
+      @sections[section_index].coords_at_linear(mapped_t) 
     end
 
 
@@ -285,26 +219,8 @@ module Bezier
     end
 
     def detailed_inspect
-      inspect_string  = ''
-      @sections.length.times do |i|
-        # by section :
-        
-        # 1. first anchor :
-        inspect_string += "@anchors[#{i}] -> (#{@anchors[i][0].to_i};#{@anchors[i][1].to_i}) - #{@anchors[i].object_id}" + " | " +
-        "@section[#{i}].anchor1 -> (#{@sections[i].anchor1[0].to_i};#{@sections[i].anchor1[1].to_i}) - #{@sections[i].anchor1.object_id}"
-
-        # 2. first control :
-        inspect_string += "@controls[#{2*i}] -> (#{@controls[2*i][0].to_i};#{@controls[2*i][1].to_i}) - #{@controls[2*i].object_id}" + " | " + 
-        "@section[#{i}].control1 -> (#{@sections[i].control1[0].to_i};#{@sections[i].control1[1].to_i}) - #{@sections[i].control1.object_255}"
-
-        # 3. second control :
-        inspect_string += "@controls[#{2*i+1}] -> (#{@controls[2*i+1][0].to_i};#{@controls[2*i+1][1].to_i}) - #{@controls[2*i+1].object_id}" + " | " +
-        "@section[#{i}].control2 -> (#{@sections[i].control2[0].to_i};#{@sections[i].control2[1].to_i}) - #{@sections[i].control2.object_255}"
-
-        # 4. second anchor :
-        inspect_string += "@anchors[#{i+1}] -> (#{@anchors[i+1][0].to_i};#{@anchors[i+1][1].to_i}) - #{@anchors[i+1].object_id}" + " | " + 
-        "@section[#{i}].anchor2 -> (#{@sections[i].anchor2[0].to_i};#{@sections[i].anchor2[1].to_i}) - #{@sections[i].anchor2.object_id}"
-      end
+      inspect_string = ''
+      @sections.each.with_index { |section,index| inspect_string += "- section #{index} :\n#{section}" }
     end
   end
 end
