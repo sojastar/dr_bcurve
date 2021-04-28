@@ -213,6 +213,11 @@ module Bezier
     end
 
 
+    ### LOADING FROM FILE :
+    def load(filename)
+    end
+
+
     ### INSPECTION :
     def to_s
       "curve #{object_id} -> #{@anchors.length} anchors"
